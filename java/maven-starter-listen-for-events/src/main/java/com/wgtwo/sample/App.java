@@ -46,14 +46,13 @@ public class App {
             .build();
 
     // Setup event listener that will automatically reconnect
-    var eventListener = new EventListener(
+    var eventListener = EventListener.createStarted(
             channel,
             callbackExecutor,
             request,
             clientCredentialSource::accessToken,
             App::handle
     );
-    eventListener.start();
 
     // Close channel when exiting
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -62,15 +61,11 @@ public class App {
     }));
 
     // Block application from exiting
-    block();
+    try { Thread.currentThread().join(); } catch (InterruptedException ignored) { }
   }
 
   public static void handle(EventsProto.Event event) {
     System.out.println(event);
-  }
-
-  private static void block() {
-    try { Thread.currentThread().join(); } catch (InterruptedException ignored) { }
   }
 
   private static void shutdown(ManagedChannel channel) {

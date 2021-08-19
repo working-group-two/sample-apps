@@ -13,11 +13,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 public class EventListener {
-    private final AtomicBoolean started = new AtomicBoolean(false);
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
     private final ExecutorService callbackExecutor;
@@ -26,7 +24,7 @@ public class EventListener {
     private final EventsProto.SubscribeEventsRequest request;
     private final Callback callback;
 
-    public EventListener(
+    private EventListener(
             Channel channel,
             ExecutorService callbackExecutor,
             EventsProto.SubscribeEventsRequest request,
@@ -38,11 +36,22 @@ public class EventListener {
         this.callback = callback;
     }
 
-    public void start() {
-        if (started.getAndSet(true)) {
-            return;
-        }
-        run();
+    public static EventListener createStarted(
+        Channel channel,
+        ExecutorService callbackExecutor,
+        EventsProto.SubscribeEventsRequest request,
+        Supplier<String> accessTokenSupplier,
+        Callback callback
+    ) {
+        var listener = new EventListener(
+            channel,
+            callbackExecutor,
+            request,
+            accessTokenSupplier,
+            callback
+        );
+        listener.run();
+        return listener;
     }
 
     public void close() {
@@ -57,6 +66,7 @@ public class EventListener {
 
     private void run() {
         System.out.println("STARTING NEW SUBSCRIPTION");
+        // Running in a context to make it possible to cancel it
         context.run(() -> stub.subscribe(request, new EventObserver()));
 
     }
