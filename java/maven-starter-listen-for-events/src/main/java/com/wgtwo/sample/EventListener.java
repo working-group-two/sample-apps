@@ -43,13 +43,7 @@ public class EventListener {
         Supplier<String> accessTokenSupplier,
         Callback callback
     ) {
-        var listener = new EventListener(
-            channel,
-            callbackExecutor,
-            request,
-            accessTokenSupplier,
-            callback
-        );
+        var listener = new EventListener(channel, callbackExecutor, request, accessTokenSupplier, callback);
         listener.run();
         return listener;
     }
