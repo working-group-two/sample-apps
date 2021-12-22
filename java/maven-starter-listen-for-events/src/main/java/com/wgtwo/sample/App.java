@@ -1,11 +1,11 @@
 package com.wgtwo.sample;
 
 import com.github.scribejava.core.builder.ServiceBuilder;
-import com.google.protobuf.Empty;
-import com.google.protobuf.util.Durations;
-import com.wgtwo.api.auth.scribejava.apis.ClientCredentialSource;
-import com.wgtwo.api.auth.scribejava.apis.WgTwoApi;
-import com.wgtwo.api.events.v0.EventsProto;
+import com.wgtwo.api.v1.events.EventsProto;
+import com.wgtwo.api.v1.subscription.SubscriptionEventsProto;
+import com.wgtwo.api.v1.subscription.SubscriptionEventsProto.StreamHandsetChangeEventsRequest;
+import com.wgtwo.sample.auth.ClientCredentialSource;
+import com.wgtwo.sample.auth.WgTwoApi;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import java.util.concurrent.Executors;
@@ -30,18 +30,9 @@ public class App {
     var callbackExecutor = Executors.newFixedThreadPool(10);
 
     // Create request
-    var request =
-        EventsProto.SubscribeEventsRequest.newBuilder()
-            .addType(EventsProto.EventType.ROAMING_EVENT)
-            .addType(EventsProto.EventType.HANDSET_UPDATE_EVENT)
-            .setDurableName("my-durable-name")
-            .setQueueName("my-queue-name")
-            .setMaxInFlight(50)
-            .setStartAtOldestPossible(Empty.getDefaultInstance())
-            .setManualAck(
-                EventsProto.ManualAckConfig.newBuilder()
-                    .setEnable(true)
-                    .setTimeout(Durations.fromSeconds(30))
+    var request = StreamHandsetChangeEventsRequest.newBuilder()
+            .setStreamConfiguration(EventsProto.StreamConfiguration.newBuilder()
+                    .setMaxInFlight(50)
                     .build())
             .build();
 
@@ -64,7 +55,7 @@ public class App {
     try { Thread.currentThread().join(); } catch (InterruptedException ignored) { }
   }
 
-  public static void handle(EventsProto.Event event) {
+  public static void handle(SubscriptionEventsProto.StreamHandsetChangeEventsResponse event) {
     System.out.println(event);
   }
 
