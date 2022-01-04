@@ -1,8 +1,8 @@
 package com.wgtwo.sample;
 
-import com.wgtwo.api.events.v0.EventsProto;
+import com.wgtwo.api.v1.subscription.SubscriptionEventsProto;
 
 @FunctionalInterface
 public interface Callback {
-  void handle(EventsProto.Event event);
+    void handle(SubscriptionEventsProto.StreamHandsetChangeEventsResponse event);
 }

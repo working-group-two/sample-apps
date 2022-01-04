@@ -1,8 +1,10 @@
 package com.wgtwo.sample;
 
-import com.wgtwo.api.events.v0.EventsProto;
-import com.wgtwo.api.events.v0.EventsServiceGrpc;
-import com.wgtwo.api.util.auth.BearerToken;
+import com.wgtwo.api.v1.events.EventsProto.AckInfo;
+import com.wgtwo.api.v1.subscription.SubscriptionEventServiceGrpc;
+import com.wgtwo.api.v1.subscription.SubscriptionEventServiceGrpc.SubscriptionEventServiceStub;
+import com.wgtwo.api.v1.subscription.SubscriptionEventsProto;
+import com.wgtwo.sample.auth.BearerToken;
 import io.grpc.Channel;
 import io.grpc.Context;
 import io.grpc.Status;
@@ -20,14 +22,14 @@ public class EventListener {
 
     private final ExecutorService callbackExecutor;
     private final Context.CancellableContext context = Context.current().fork().withCancellation();
-    private final EventsServiceGrpc.EventsServiceStub stub;
-    private final EventsProto.SubscribeEventsRequest request;
+    private final SubscriptionEventServiceStub stub;
+    private final SubscriptionEventsProto.StreamHandsetChangeEventsRequest request;
     private final Callback callback;
 
     private EventListener(
             Channel channel,
             ExecutorService callbackExecutor,
-            EventsProto.SubscribeEventsRequest request,
+            SubscriptionEventsProto.StreamHandsetChangeEventsRequest request,
             Supplier<String> accessTokenSupplier,
             Callback callback) {
         this.callbackExecutor = callbackExecutor;
@@ -37,11 +39,11 @@ public class EventListener {
     }
 
     public static EventListener createStarted(
-        Channel channel,
-        ExecutorService callbackExecutor,
-        EventsProto.SubscribeEventsRequest request,
-        Supplier<String> accessTokenSupplier,
-        Callback callback
+            Channel channel,
+            ExecutorService callbackExecutor,
+            SubscriptionEventsProto.StreamHandsetChangeEventsRequest request,
+            Supplier<String> accessTokenSupplier,
+            Callback callback
     ) {
         var listener = new EventListener(channel, callbackExecutor, request, accessTokenSupplier, callback);
         listener.run();
@@ -61,48 +63,48 @@ public class EventListener {
     private void run() {
         System.out.println("STARTING NEW SUBSCRIPTION");
         // Running in a context to make it possible to cancel it
-        context.run(() -> stub.subscribe(request, new EventObserver()));
+        context.run(() -> stub.streamHandsetChangeEvents(request, new EventObserver()));
 
     }
 
-    public void acknowledge(EventsProto.Event event) {
+    public void acknowledge(AckInfo ackInfo) {
         var request =
-                EventsProto.AckRequest.newBuilder()
-                        .setSequence(event.getMetadata().getSequence())
-                        .setInbox(event.getMetadata().getAckInbox())
+                SubscriptionEventsProto.AckHandsetChangeEventRequest.newBuilder()
+                        .setAckInfo(ackInfo)
                         .build();
-        stub.ack(request, new StreamObserver<>() {
+        stub.ackHandsetChangeEvent(request, new StreamObserver<>() {
             @Override
-            public void onNext(EventsProto.AckResponse ackResponse) {
-                System.out.println("Acknowledged event: " + event.getMetadata().getSequence());
+            public void onNext(SubscriptionEventsProto.AckHandsetChangeEventResponse ackResponse) {
+                System.out.println("Acknowledged event: " + ackInfo);
             }
 
             @Override
             public void onError(Throwable throwable) {
-                System.err.println("Acknowledged event failed: " + event.getMetadata().getSequence());
+                System.err.println("Acknowledged event failed: " + ackInfo);
             }
 
             @Override
-            public void onCompleted() {}
+            public void onCompleted() {
+            }
         });
     }
 
-    private EventsServiceGrpc.EventsServiceStub createStub(Channel channel, Supplier<String> accessTokenSupplier) {
-        var stub = EventsServiceGrpc.newStub(channel);
+    private SubscriptionEventServiceStub createStub(Channel channel, Supplier<String> accessTokenSupplier) {
+        var stub = SubscriptionEventServiceGrpc.newStub(channel);
         if (accessTokenSupplier != null) {
             stub = stub.withCallCredentials(new BearerToken(accessTokenSupplier));
         }
         return stub;
     }
 
-    private class EventObserver implements StreamObserver<EventsProto.SubscribeEventsResponse> {
+    private class EventObserver implements StreamObserver<SubscriptionEventsProto.StreamHandsetChangeEventsResponse> {
         @Override
-        public void onNext(EventsProto.SubscribeEventsResponse subscribeEventsResponse) {
-            var event = subscribeEventsResponse.getEvent();
+        public void onNext(SubscriptionEventsProto.StreamHandsetChangeEventsResponse subscribeEventsResponse) {
+            var event = subscribeEventsResponse;
             callbackExecutor.submit(() -> {
                 try {
                     callback.handle(event);
-                    acknowledge(event);
+                    acknowledge(event.getMetadata().getAckInfo());
                 } catch (Exception e) {
                     System.err.println("Exception while handling event - skipping ack");
                 }
